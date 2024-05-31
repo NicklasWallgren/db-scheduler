@@ -89,7 +89,8 @@ public class Scheduler implements SchedulerClient {
       boolean logStackTrace,
       List<OnStartup> onStartup,
       ExecutorService dueExecutor,
-      ScheduledExecutorService housekeeperExecutor) {
+      ScheduledExecutorService housekeeperExecutor,
+      ExecutePickedFactory executePickedFactory) {
     this.clock = clock;
     this.schedulerTaskRepository = schedulerTaskRepository;
     this.taskResolver = taskResolver;
@@ -109,6 +110,7 @@ public class Scheduler implements SchedulerClient {
     this.statsRegistry = statsRegistry;
     this.dueExecutor = dueExecutor;
     this.housekeeperExecutor = housekeeperExecutor;
+
     earlyExecutionListener =
         (enableImmediateExecution
             ? new TriggerCheckForDueExecutions(schedulerState, clock, executeDueWaiter)
@@ -132,7 +134,8 @@ public class Scheduler implements SchedulerClient {
               clock,
               pollingStrategyConfig,
               this::triggerCheckForDueExecutions,
-              heartbeatConfig);
+              heartbeatConfig,
+              executePickedFactory);
     } else if (pollingStrategyConfig.type == PollingStrategyConfig.Type.FETCH) {
       executeDueStrategy =
           new FetchCandidates(
@@ -148,7 +151,8 @@ public class Scheduler implements SchedulerClient {
               clock,
               pollingStrategyConfig,
               this::triggerCheckForDueExecutions,
-              heartbeatConfig);
+              heartbeatConfig,
+              executePickedFactory);
     } else {
       throw new IllegalArgumentException(
           "Unknown polling-strategy type: " + pollingStrategyConfig.type);

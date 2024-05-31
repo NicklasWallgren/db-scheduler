@@ -68,7 +68,8 @@ public class ManualScheduler extends Scheduler {
         logStackTrace,
         onStartup,
         dueExecutor,
-        houseKeeperExecutor);
+        houseKeeperExecutor,
+        null); // TODO (nw) temporary
     this.clock = clock;
   }
 

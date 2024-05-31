@@ -77,6 +77,7 @@ public class SchedulerBuilder {
   private boolean registerShutdownHook = false;
   private int numberOfMissedHeartbeatsBeforeDead = DEFAULT_MISSED_HEARTBEATS_LIMIT;
   private boolean alwaysPersistTimestampInUTC = false;
+  private ExecutePickedFactory executePickedFactory = new DefaultExecutePickedFactory();
 
   public SchedulerBuilder(DataSource dataSource, List<Task<?>> knownTasks) {
     this.dataSource = dataSource;
@@ -211,6 +212,12 @@ public class SchedulerBuilder {
     return this;
   }
 
+  public SchedulerBuilder executePickedFactory(ExecutePickedFactory executePickedFactory) {
+    this.executePickedFactory = executePickedFactory;
+
+    return this;
+  }
+
   public SchedulerBuilder registerShutdownHook() {
     this.registerShutdownHook = true;
     return this;
@@ -298,7 +305,8 @@ public class SchedulerBuilder {
             logStackTrace,
             startTasks,
             candidateDueExecutor,
-            candidateHousekeeperExecutor);
+            candidateHousekeeperExecutor,
+            executePickedFactory);
 
     if (registerShutdownHook) {
       Runtime.getRuntime()

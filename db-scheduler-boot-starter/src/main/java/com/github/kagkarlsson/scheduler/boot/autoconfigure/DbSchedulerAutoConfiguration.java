@@ -13,10 +13,13 @@
  */
 package com.github.kagkarlsson.scheduler.boot.autoconfigure;
 
+import com.github.kagkarlsson.scheduler.DefaultExecutePickedFactory;
+import com.github.kagkarlsson.scheduler.ExecutePickedFactory;
 import com.github.kagkarlsson.scheduler.PollingStrategyConfig;
 import com.github.kagkarlsson.scheduler.Scheduler;
 import com.github.kagkarlsson.scheduler.SchedulerBuilder;
 import com.github.kagkarlsson.scheduler.SchedulerName;
+import com.github.kagkarlsson.scheduler.boot.ObservableExecutePickedFactory;
 import com.github.kagkarlsson.scheduler.boot.config.DbSchedulerCustomizer;
 import com.github.kagkarlsson.scheduler.boot.config.DbSchedulerProperties;
 import com.github.kagkarlsson.scheduler.boot.config.DbSchedulerStarter;
@@ -28,6 +31,7 @@ import com.github.kagkarlsson.scheduler.serializer.Serializer;
 import com.github.kagkarlsson.scheduler.stats.StatsRegistry;
 import com.github.kagkarlsson.scheduler.task.OnStartup;
 import com.github.kagkarlsson.scheduler.task.Task;
+import io.opentelemetry.api.OpenTelemetry;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectInput;
@@ -43,13 +47,16 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.AutoConfigurationPackage;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.sql.init.dependency.DependsOnDatabaseInitialization;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.core.ConfigurableObjectInputStream;
 import org.springframework.jdbc.datasource.TransactionAwareDataSourceProxy;
 
@@ -97,11 +104,26 @@ public class DbSchedulerAutoConfiguration {
     return StatsRegistry.NOOP;
   }
 
+  @ConditionalOnMissingClass("io.opentelemetry.api.OpenTelemetry")
+  @Bean
+  ExecutePickedFactory defaultExecutePickedFactory() {
+    return new DefaultExecutePickedFactory();
+  }
+
+  @ConditionalOnClass(OpenTelemetry.class)
+  @Bean
+  ExecutePickedFactory observableExecutePickedFactory() {
+    return new ObservableExecutePickedFactory();
+  }
+
   @ConditionalOnBean(DataSource.class)
   @ConditionalOnMissingBean
   @DependsOnDatabaseInitialization
   @Bean(destroyMethod = "stop")
-  public Scheduler scheduler(DbSchedulerCustomizer customizer, StatsRegistry registry) {
+  public Scheduler scheduler(
+      DbSchedulerCustomizer customizer,
+      StatsRegistry registry,
+      ExecutePickedFactory executePickedFactory) {
     log.info("Creating db-scheduler using tasks from Spring context: {}", configuredTasks);
 
     // Ensure that we are using a transactional aware data source
@@ -181,6 +203,8 @@ public class DbSchedulerAutoConfiguration {
 
     // Shutdown max wait
     builder.shutdownMaxWait(config.getShutdownMaxWait());
+
+    builder.executePickedFactory(executePickedFactory);
 
     return builder.build();
   }

@@ -41,6 +41,7 @@ public class FetchCandidates implements PollStrategy {
   AtomicInteger currentGenerationNumber = new AtomicInteger(0);
   private final int lowerLimit;
   private final int upperLimit;
+  private final ExecutePickedFactory executePickedFactory;
 
   public FetchCandidates(
       Executor executor,
@@ -55,7 +56,8 @@ public class FetchCandidates implements PollStrategy {
       Clock clock,
       PollingStrategyConfig pollingStrategyConfig,
       Runnable triggerCheckForNewExecutions,
-      HeartbeatConfig heartbeatConfig) {
+      HeartbeatConfig heartbeatConfig,
+      ExecutePickedFactory executePickedFactory) {
     this.executor = executor;
     this.taskRepository = taskRepository;
     this.schedulerClient = schedulerClient;
@@ -68,6 +70,7 @@ public class FetchCandidates implements PollStrategy {
     this.pollingStrategyConfig = pollingStrategyConfig;
     this.triggerCheckForNewExecutions = triggerCheckForNewExecutions;
     this.heartbeatConfig = heartbeatConfig;
+    this.executePickedFactory = executePickedFactory;
     lowerLimit = pollingStrategyConfig.getLowerLimit(threadpoolSize);
     // FIXLATER: this is not "upper limit", but rather nr of executions to get. those already in
     // queue will become stale
@@ -99,7 +102,8 @@ public class FetchCandidates implements PollStrategy {
             final Optional<Execution> candidate = new PickDue(e, newDueBatch).call();
             candidate.ifPresent(
                 picked ->
-                    new ExecutePicked(
+                    executePickedFactory
+                        .create(
                             executor,
                             taskRepository,
                             earlyExecutionListener,
